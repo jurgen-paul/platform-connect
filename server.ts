@@ -62,15 +62,16 @@ async function startServer() {
       const account = await stripe.accounts.retrieve(req.params.accountId);
       
       const chargesEnabled = account.charges_enabled;
-      const detailsSubmitted = account.details_submitted;
+      const details_submitted = account.details_submitted;
       const payoutsEnabled = account.payouts_enabled;
 
       res.json({
         id: account.id,
         payoutsEnabled,
         chargesEnabled,
-        detailsSubmitted,
+        detailsSubmitted: details_submitted,
         requirements: account.requirements?.currently_due || [],
+        metadata: account.metadata || {},
       });
     } catch (error: any) {
       console.error('Error fetching status:', error);
@@ -78,14 +79,32 @@ async function startServer() {
     }
   });
 
+  // Update account metadata (profile, contact, social)
+  app.post('/api/update-account-settings', async (req, res) => {
+    const { accountId, metadata } = req.body;
+    try {
+      const account = await stripe.accounts.update(accountId, {
+        metadata: metadata,
+      });
+      res.json({ success: true, metadata: account.metadata });
+    } catch (error: any) {
+      console.error('Error updating settings:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Create a product
   app.post('/api/create-product', async (req, res) => {
-    const { productName, productDescription, productPrice, accountId } = req.body;
+    const { productName, productDescription, productPrice, productCategory, productImage, accountId } = req.body;
     try {
       const product = await stripe.products.create({
         name: productName,
         description: productDescription,
-        metadata: { stripeAccount: accountId },
+        images: productImage ? [productImage] : [],
+        metadata: { 
+          stripeAccount: accountId,
+          category: productCategory || 'Uncategorized'
+        },
       });
 
       const price = await stripe.prices.create({
@@ -98,11 +117,32 @@ async function startServer() {
       res.json({
         productName: product.name,
         productDescription: product.description,
+        productCategory,
         productPrice,
         priceId: price.id,
+        image: product.images[0] || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80',
       });
     } catch (error: any) {
       console.error('Error creating product:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update a product
+  app.post('/api/update-product', async (req, res) => {
+    const { productId, productName, productDescription, productCategory, productImage } = req.body;
+    try {
+      const product = await stripe.products.update(productId, {
+        name: productName,
+        description: productDescription,
+        images: productImage ? [productImage] : undefined,
+        metadata: {
+          category: productCategory
+        },
+      });
+      res.json({ success: true, product });
+    } catch (error: any) {
+      console.error('Error updating product:', error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -120,9 +160,10 @@ async function startServer() {
         id: price.product.id,
         name: price.product.name,
         description: price.product.description,
+        category: price.product.metadata.category || 'Uncategorized',
         price: price.unit_amount, // in cents
         priceId: price.id,
-        image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80',
+        image: price.product.images[0] || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80',
       }));
 
       res.json(products);

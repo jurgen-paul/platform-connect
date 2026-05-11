@@ -7,6 +7,7 @@ export interface AccountStatus {
   chargesEnabled: boolean;
   detailsSubmitted: boolean;
   requirements: string[];
+  metadata?: Record<string, string>;
 }
 
 export const useAccountStatus = () => {
