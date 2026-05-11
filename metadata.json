@@ -1,0 +1,6 @@
+{
+  "name": "Stripe Connect Marketplace",
+  "description": "A multi-vendor storefront platform using Stripe Connect to manage vendor accounts, products, and split payments.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
